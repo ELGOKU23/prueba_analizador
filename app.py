@@ -3,9 +3,18 @@ from flask_cors import CORS
 from graphviz import Digraph
 import base64
 import os
+import cloudinary
+import cloudinary.uploader
 
 app = Flask(__name__)
 CORS(app)
+
+# Configurar Cloudinary
+cloudinary.config(
+    cloud_name='dzmjflegw', 
+    api_key='457169349795768', 
+    api_secret='ZIdhaDVGeh2TJ1CTUI0BLRi31vo'
+)
 
 
 class Scanner:
@@ -13,8 +22,7 @@ class Scanner:
     def __init__(self, input_string):
         self.tokens = input_string.replace(' ', '')
         self.position = 0
-        self.current_token = self.tokens[
-            self.position] if self.tokens else None
+        self.current_token = self.tokens[self.position] if self.tokens else None
 
     def advance(self):
         self.position += 1
@@ -41,8 +49,7 @@ class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.position = 0
-        self.current_token = self.tokens[
-            self.position] if self.tokens else None
+        self.current_token = self.tokens[self.position] if self.tokens else None
         self.graph = Digraph(comment='Syntax Tree')
 
     def advance(self):
@@ -81,7 +88,6 @@ class Parser:
             self.advance()
 
             expr_node = self.parse_expr(parent)
-        # epsilon transition does nothing
         return parent
 
     def parse_term(self, parent=None):
@@ -103,7 +109,6 @@ class Parser:
             self.advance()
 
             term_node = self.parse_term(parent)
-        # epsilon transition does nothing
         return parent
 
     def parse_factor(self, parent=None):
@@ -139,41 +144,36 @@ class Parser:
         scanner = Scanner(expression)
         self.tokens = scanner.get_tokens()
         self.position = 0
-        self.current_token = self.tokens[
-            self.position] if self.tokens else None
+        self.current_token = self.tokens[self.position] if self.tokens else None
         self.parse_expr()
-        if not os.path.exists('static'):
-            os.makedirs('static')
-        file_path = 'static/syntax_tree'
+
+        file_path = 'syntax_tree'
         try:
             self.graph.render(file_path, format='png', cleanup=False)
             with open(f"{file_path}.png", "rb") as image_file:
-                base64_image = base64.b64encode(
-                    image_file.read()).decode('utf-8')
-            print(f"File {file_path}.png created successfully.")
-            return base64_image
+                response = cloudinary.uploader.upload(image_file)
+            os.remove(f"{file_path}.png")  # Eliminar el archivo local después de subirlo
+            print(f"File {file_path}.png uploaded successfully.")
+            return response['secure_url']
         except Exception as e:
             print(f"Error generating image: {e}")
             return None
 
-
 @app.route('/')
-def index():   #aca joo
+def index():
     return render_template('index.html')
-
 
 @app.route('/generate-syntax-tree', methods=['POST'])
 def generate_syntax_tree():
     data = request.json
     expression = data['expression']
-    print(f"Received expression from client: {expression}")  # Debug message
+    print(f"Received expression from client: {expression}")
     parser = Parser([])
-    base64_image = parser.draw_syntax_tree(expression)
-    if base64_image:
-        return jsonify({"success": True, "image": base64_image})
+    image_url = parser.draw_syntax_tree(expression)
+    if image_url:
+        return jsonify({"success": True, "image_url": image_url})
     else:
         return jsonify({"success": False})
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
