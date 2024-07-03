@@ -7,33 +7,41 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-
 class Scanner:
-
     def __init__(self, input_string):
-        self.tokens = input_string.replace(' ', '')
+        self.input_string = input_string.replace(' ', '')
         self.position = 0
-        self.current_token = self.tokens[
-            self.position] if self.tokens else None
+        self.current_char = self.input_string[self.position] if self.input_string else None
 
     def advance(self):
         self.position += 1
-        if self.position < len(self.tokens):
-            self.current_token = self.tokens[self.position]
+        if self.position < len(self.input_string):
+            self.current_char = self.input_string[self.position]
         else:
-            self.current_token = None
+            self.current_char = None
 
     def get_tokens(self):
         tokens = []
-        while self.current_token is not None:
-            if self.current_token.isdigit():
-                tokens.append(('NUM', self.current_token))
-            elif self.current_token.isalpha():
-                tokens.append(('ID', self.current_token))
-            elif self.current_token in '+-*/()':
-                tokens.append(('SYM', self.current_token))
-            self.advance()
+        while self.current_char is not None:
+            if self.current_char.isdigit():
+                tokens.append(('NUM', self.collect_number()))
+            elif self.current_char.isalpha():
+                tokens.append(('ID', self.current_char))
+                self.advance()
+            elif self.current_char in '+-*/()':
+                tokens.append(('SYM', self.current_char))
+                self.advance()
+            else:
+                self.advance()
         return tokens
+
+    def collect_number(self):
+        number = self.current_char
+        self.advance()
+        while self.current_char is not None and self.current_char.isdigit():
+            number += self.current_char
+            self.advance()
+        return number
 
 
 class Parser:
